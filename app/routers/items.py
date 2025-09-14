@@ -1,11 +1,18 @@
+"""
+Trip Items Router
+"""
+
 from fastapi import APIRouter, HTTPException
+
 import app.services.items as items
+
 
 router = APIRouter(
     prefix="/items",
     tags=["Items"],
     responses={404: {"description": "Not found"}}
 )
+
 
 @router.patch("/{item_id}")
 async def update_item(item_id: str):

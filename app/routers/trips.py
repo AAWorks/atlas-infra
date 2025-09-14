@@ -1,6 +1,12 @@
+"""
+Trips Router
+"""
+
+from fastapi import APIRouter, Request, HTTPException
+
 import app.services.trips as trips
 from app.utils.auth import get_current_user_id
-from fastapi import APIRouter, Request, HTTPException
+
 
 router = APIRouter(
     prefix="/trips",
