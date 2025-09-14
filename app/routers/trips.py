@@ -1,8 +1,6 @@
-from fastapi import APIRouter, Request, HTTPException, Body
-from app.utils.auth import get_current_user_id
-
 import app.services.trips as trips
-
+from app.utils.auth import get_current_user_id
+from fastapi import APIRouter, Request, HTTPException
 
 router = APIRouter(
     prefix="/trips",
@@ -12,10 +10,13 @@ router = APIRouter(
 
 
 @router.get("")
-def get_trips(request: Request):
+async def get_trips(request: Request):
+    """
+    Get all user trips
+    """
     try:
         user_id = get_current_user_id(request)
-        res = trips.get_trips(user_id)
+        res = await trips.get_trips(user_id)
         return res
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -26,40 +27,125 @@ def get_trips(request: Request):
 
 
 @router.post("")
-def create_trip():
-    return trips.create_trip()
+async def create_trip(request: Request):
+    """
+    Create a new trip
+    """
+    try:
+        user_id = get_current_user_id(request)
+        trip_data = await request.json()
+        res = await trips.create_trip(user_id, trip_data)
+        return res
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/{id}")
-def get_trip(id: str):
-    return trips.get_trip(id)
+async def get_trip(id: str):
+    """
+    Get a specific trip by ID
+    """
+    try:
+        res = await trips.get_trip(id)
+        if not res:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.patch("/{id}")
-def update_trip(id: str):
-    return trips.update_trip(id)
+async def update_trip(id: str, request: Request):
+    """
+    Modify trip by ID
+    """
+    try:
+        trip_data = await request.json()
+        res = await trips.update_trip(id, trip_data)
+        if not res:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        return res
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/{id}/itinerary")
-def get_itinerary(id: str):
-    return trips.get_itinerary(id)
+async def get_itinerary(id: str):
+    """
+    Get itinerary by trip ID
+    """
+    try:
+        res = await trips.get_itinerary(id)  # Await the itinerary fetching here
+        if not res:
+            raise HTTPException(status_code=404, detail="Itinerary not found")
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-router.post("/{id}/items")
-def create_itinerary_item(id: str):
-    return trips.create_itinerary_item(id)
+@router.post("/{id}/items")
+async def create_itinerary_item(id: str, request: Request):
+    """
+    Create itinerary item by trip ID
+    """
+    try:
+        item_data = await request.json()
+        res = await trips.create_itinerary_item(id, item_data)
+        if not res:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/{id}/budget")
-def get_budget(id: str):
-    return trips.get_budget(id)
+async def get_budget(id: str):
+    """
+    Get budget by trip ID
+    """
+    try:
+        res = await trips.get_budget(id)
+        if not res:
+            raise HTTPException(status_code=404, detail="Budget not found")
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/{id}/budget")
-def create_budget_entry(id: str):
-    return trips.create_budget_entry(id)
+async def create_budget_entry(id: str, request: Request):
+    """
+    Create a new budget entry by trip ID
+    """
+    try:
+        budget_data = await request.json()
+        res = await trips.create_budget_entry(id, budget_data)
+        if not res:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/{id}/export?format=md|html|pdf")
-def export_trip(id: str, format: str):
-    return trips.export_trip(id, format)
+@router.post("/{id}/export")
+async def export_trip(id: str, format: str):
+    """
+    Export trip by trip ID in different formats: Markdown, HTML, PDF
+    """
+    if format not in ['md', 'html', 'pdf']:
+        raise HTTPException(status_code=400, detail="Invalid format. Supported formats: md, html, pdf")
+    try:
+        res = await trips.export_trip(id, format)
+        if not res:
+            raise HTTPException(status_code=404, detail="Trip not found")
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

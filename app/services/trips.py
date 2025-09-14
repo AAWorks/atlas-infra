@@ -12,6 +12,6 @@ supabase = create_client(
 )
 
 # Get User Trips
-def get_trips(user_id: str):
+async def get_trips(user_id: str):
     trips = supabase.table(config.DB_SCHEMA.TRIP).select("*").eq("owner_user_id", user_id).execute()
     return trips.data
