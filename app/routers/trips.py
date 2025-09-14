@@ -34,7 +34,7 @@ async def create_trip(request: Request):
     try:
         user_id = get_current_user_id(request)
         trip_data = await request.json()
-        res = await trips.create_trip(user_id, trip_data)
+        res = trips.create_trip(user_id, trip_data)
         return res
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
