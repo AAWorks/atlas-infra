@@ -58,11 +58,12 @@ async def update_trip(id: str, request: Request, user_id: str = Depends(resolve_
     return res
 
 
-# TODO: review whether or not user_id is needed for the below routes (I believe it should be)
+# TODO: review whether or not user_id is needed for the below routes (I believe it should be) update: RESOLVED answer is yes
 
-
+'''
+Commented out for focus on main routes first, will re-add later
 @router.get("/{id}/itinerary")
-async def get_itinerary(id: str):
+async def get_itinerary(id: str, user_id: str = Depends(resolve_user_id)):
     """
     Get itinerary by trip ID (w)
     """
@@ -73,7 +74,7 @@ async def get_itinerary(id: str):
 
 
 @router.post("/{id}/items")
-async def create_itinerary_item(id: str, request: Request):
+async def create_itinerary_item(id: str, request: Request, user_id: str = Depends(resolve_user_id)):
     """
     Create itinerary item by trip ID (w)
     """
@@ -85,7 +86,7 @@ async def create_itinerary_item(id: str, request: Request):
 
 
 @router.get("/{id}/budget")
-async def get_budget(id: str):
+async def get_budget(id: str, user_id: str = Depends(resolve_user_id)):
     """
     Get budget by trip ID (w)
     """
@@ -96,7 +97,7 @@ async def get_budget(id: str):
 
 
 @router.post("/{id}/budget")
-async def create_budget_entry(id: str, request: Request):
+async def create_budget_entry(id: str, request: Request, user_id: str = Depends(resolve_user_id)):
     """
     Create a new budget entry by trip ID (w)
     """
@@ -108,7 +109,7 @@ async def create_budget_entry(id: str, request: Request):
 
 
 @router.post("/{id}/export")
-async def export_trip(id: str, format: str):
+async def export_trip(id: str, format: str, user_id: str = Depends(resolve_user_id)):
     """
     Export trip by trip ID in different formats: Markdown, HTML, PDF (work in progress)
     """
@@ -119,3 +120,4 @@ async def export_trip(id: str, format: str):
     if not res:
         raise HTTPException(status_code=404, detail="Trip not found")
     return res
+'''
