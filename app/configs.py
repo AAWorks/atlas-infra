@@ -31,12 +31,21 @@ class Config:
     """
     Uniform Configs
     """
+    TITLE = "Atlas Backend API"
+    SEM_VER = "v1"
+    DESCRIPTION = "Developer API for Atlas, a simple OO-inspired travel planner."
+
     def __init__(self):
         self.SUPABASE_URL = os.getenv("SUPABASE_URL")
         self.SUPABASE_SERVICE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
         self.SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
         self.DB_SCHEMA = DBSchema()
         self.LOGGER = 'uvicorn.error'
+
+        self.ALLOWED_ORIGINS = os.getenv(
+            "ALLOWED_ORIGINS",
+            "http://localhost,http://localhost:8080"
+        ).split(",")
 
 
 class DevConfig(Config):
