@@ -8,7 +8,7 @@ from fastapi import (
 )
 
 import app.services.trips as trips
-from app.dependencies import resolve_user_id
+from app.utils.auth import resolve_user_id
 
 
 router = APIRouter(
