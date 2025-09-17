@@ -123,9 +123,11 @@ async def export_trip_data(trip_id: str):
 
     # Combine all data into a single dictionary
     export_data = {
-        "trip": trip.data,
-        "itinerary": itinerary.data,
-        "budget": budget.data
+        "content" : {
+            "trip": trip.data,
+            "itinerary": itinerary.data,
+            "budget": budget.data
+        }
     }
 
     return export_data

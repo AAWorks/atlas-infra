@@ -451,12 +451,12 @@ with tab_db:
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown("**Trips**")
-        st.code(as_json({k: asdict(v) for k,v in get_table(TRIP).items()}), language="json")
+        st.code(as_json({k: v for k,v in get_table(TRIP).items()}), language="json")
         st.markdown("**Places**")
-        st.code(as_json({k: asdict(v) for k,v in get_table(PLACE).items()}), language="json")
+        st.code(as_json({k: v for k,v in get_table(PLACE).items()}), language="json")
     with col2:
         st.markdown("**Items**")
-        st.code(as_json({k: asdict(v) for k,v in get_table(ITINERARY_ITEM).items()}), language="json")
+        st.code(as_json({k: v for k,v in get_table(ITINERARY_ITEM).items()}), language="json")
         st.markdown("**Subtypes**")
         st.code(as_json({
             "lodging": get_table(LODGING),
@@ -466,6 +466,6 @@ with tab_db:
         }), language="json")
     with col3:
         st.markdown("**Budget**")
-        st.code(as_json({k: asdict(v) for k,v in get_table(BUDGET_ENTRY).items()}), language="json")
+        st.code(as_json({k: v for k,v in get_table(BUDGET_ENTRY).items()}), language="json")
         st.markdown("**Docs**")
-        st.code(as_json({k: asdict(v) for k,v in get_table(REQUIRED_DOCUMENT).items()}), language="json")
+        st.code(as_json({k: v for k,v in get_table(REQUIRED_DOCUMENT).items()}), language="json")
