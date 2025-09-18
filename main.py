@@ -184,22 +184,34 @@ tab_trips, tab_itin, tab_budget, tab_docs, tab_export, tab_console, tab_db = st.
 
 # ---- Trips ----
 with tab_trips:
-    st.subheader("Trips")
+    st.subheader("Your Trips")
+
     trips = run_async(tripServices.get_trips(USER_ID))
-    trip_options = {t["title"]: t["id"] for t in trips}
     if not trips:
         st.info("No trips yet. Create one below.")
         selected_trip_id = None
     else:
-        selected_trip_name = st.selectbox("Select Trip", list(trip_options.keys()))
-        selected_trip_id = trip_options[selected_trip_name]
-        st.json(run_async(tripServices.get_trip(USER_ID, selected_trip_id)))
+        trip_titles = [t["title"] for t in trips]
+        selected_trip_name = st.selectbox("Select Trip", trip_titles)
+        selected_trip = next(t for t in trips if t["title"] == selected_trip_name)
 
+        with st.expander("Trip Details", expanded=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write(f"**Title:** {selected_trip['title']}")
+                st.write(f"**Start:** {selected_trip['start_date']}")
+                st.write(f"**End:** {selected_trip['end_date']}")
+                st.write(f"**Time Zone:** {selected_trip['time_zone']}")
+            with col2:
+                st.write(f"**Currency:** {selected_trip['home_currency']}")
+                st.write(f"**Notes:** {selected_trip.get('notes', '-')}")
+                st.caption(f"Created at: {selected_trip['created_at']}")
+    
     st.markdown("### Create Trip")
     with st.form("create_trip"):
         title = st.text_input("Title", "New Trip")
-        start_date = st.date_input("Start date", value=date.today()+timedelta(days=20))
-        end_date = st.date_input("End date", value=date.today()+timedelta(days=27))
+        start_date = st.date_input("Start date", value=date.today() + timedelta(days=20))
+        end_date = st.date_input("End date", value=date.today() + timedelta(days=27))
         currency = st.text_input("Default currency", "USD")
         tz = st.text_input("Time zone", "UTC")
         notes = st.text_area("Notes", "")
@@ -214,32 +226,55 @@ with tab_trips:
                 "time_zone": tz,
                 "notes": notes
             }))
-            st.success("Created trip")
-            st.json(new)
+            st.success("Created trip successfully!")
             st.rerun()
+
 
 # ---- Itinerary ----
 with tab_itin:
     st.subheader("Itinerary")
     trips = run_async(tripServices.get_trips(USER_ID))
+    
     if not trips:
         st.info("Create a trip first.")
     else:
         trip_map = {t["title"]: t["id"] for t in trips}
-        name = st.selectbox("Trip", list(trip_map.keys()), index=0)
-        tid = trip_map[name]
+        selected_trip_name = st.selectbox("Trip", list(trip_map.keys()), index=0)
+        tid = trip_map[selected_trip_name]
+        selected_trip = next((t for t in trips if t["id"] == tid), {})
+        
+        st.write(f"**Currency:** {selected_trip.get('home_currency', 'N/A')}")
+        st.write(f"**Dates:** {selected_trip.get('start_date', '')} → {selected_trip.get('end_date', '')}")
+        
         colA, colB, colC = st.columns(3)
         with colA:
             from_ = st.text_input("From (YYYY-MM-DD)", "")
         with colB:
             to_ = st.text_input("To (YYYY-MM-DD)", "")
         with colC:
-            bucket = st.selectbox("Bucket", ["day","week"], index=0)
-        res = run_async(tripServices.get_itinerary(tid))#, from_ or None, to_ or None, bucket))
-        st.markdown("**Buckets**")
-        st.json(res)
+            bucket = st.selectbox("Bucket", ["day", "week"], index=0)
 
-        st.markdown("### Add Item")
+        # Fetch itinerary
+        raw_itin = run_async(tripServices.get_itinerary(tid))
+        items = raw_itin if isinstance(raw_itin, list) else raw_itin.get("items", [])
+
+        if items:
+            st.markdown("### 🗓️ Itinerary Items")
+            for item in items:
+                with st.expander(f"{item.get('name', 'Unnamed')} ({item.get('type', '-')})"):
+                    st.write(f"**Start:** {item.get('start_time')}")
+                    st.write(f"**End:** {item.get('end_time')}")
+                    st.write(f"**Status:** `{item.get('status')}`")
+                    st.write(f"**Cost:** {money_fmt(item.get('cost_amount'), item.get('cost_currency'))}")
+                    if item.get("link"):
+                        st.markdown(f"[🔗 Link]({item.get('link')})")
+                    if item.get("notes"):
+                        st.info(item["notes"])
+        else:
+            st.warning("No itinerary items found.")
+
+        # --- Add Item Form ---
+        st.markdown("### ➕ Add Item")
         with st.form("add_item"):
             itype = st.selectbox("Type", ITEM_TYPES, index=0)
             iname = st.text_input("Name", "New Item")
@@ -250,13 +285,15 @@ with tab_itin:
             end_time = st.text_input("End time (ISO)", "")
             notes = st.text_area("Notes", "")
             subtype = {}
+
             if itype == "travel":
                 st.caption("Travel segment")
                 mode = st.selectbox("Mode", TRAVEL_MODES, index=0)
                 operator = st.text_input("Operator", "")
                 number = st.text_input("Number", "")
-                origin_id = st.text_input("Origin place_id (UUID)", next(iter(get_table(PLACE))) if get_table(PLACE) else "")
-                destination_id = st.text_input("Destination place_id (UUID)", next(iter(get_table(PLACE))) if get_table(PLACE) else "")
+                place_table = get_table(PLACE)
+                origin_id = st.text_input("Origin place_id (UUID)", next(iter(place_table)) if place_table else "")
+                destination_id = st.text_input("Destination place_id (UUID)", next(iter(place_table)) if place_table else "")
                 depart_time = st.text_input("Depart time (ISO)", start_time)
                 arrive_time = st.text_input("Arrive time (ISO)", end_time)
                 subtype = {"travel_segment": {
@@ -266,7 +303,8 @@ with tab_itin:
                 }}
             elif itype == "lodging":
                 st.caption("Lodging")
-                place_id = st.text_input("place_id (UUID)", next(iter(get_table(PLACE))) if get_table(PLACE) else "")
+                place_table = get_table(PLACE)
+                place_id = st.text_input("place_id (UUID)", next(iter(place_table)) if place_table else "")
                 check_in = st.text_input("check_in (YYYY-MM-DD)", "")
                 check_out = st.text_input("check_out (YYYY-MM-DD)", "")
                 provider = st.text_input("Provider", "")
@@ -283,8 +321,9 @@ with tab_itin:
                 vehicle = st.selectbox("Vehicle", VEHICLE_TYPES, index=0)
                 vendor = st.text_input("Vendor", "")
                 confirmation_code = st.text_input("Confirmation", "")
-                pickup_place_id = st.text_input("Pickup place_id", next(iter(get_table(PLACE))) if get_table(PLACE) else "")
-                dropoff_place_id = st.text_input("Dropoff place_id", next(iter(get_table(PLACE))) if get_table(PLACE) else "")
+                place_table = get_table(PLACE)
+                pickup_place_id = st.text_input("Pickup place_id", next(iter(place_table)) if place_table else "")
+                dropoff_place_id = st.text_input("Dropoff place_id", next(iter(place_table)) if place_table else "")
                 pickup_time = st.text_input("Pickup time (ISO)", start_time)
                 dropoff_time = st.text_input("Dropoff time (ISO)", end_time)
                 subtype = {"transport_rental": {
@@ -294,22 +333,30 @@ with tab_itin:
                 }}
             elif itype == "event":
                 st.caption("Event/activity")
-                venue_id = st.text_input("venue_id (UUID)", next(iter(get_table(PLACE))) if get_table(PLACE) else "")
+                place_table = get_table(PLACE)
+                venue_id = st.text_input("venue_id (UUID)", next(iter(place_table)) if place_table else "")
                 category = st.text_input("Category", "excursion")
                 admission = st.text_area("Admission (JSON)", "{}")
                 try:
                     admission_obj = json.loads(admission or "{}")
                 except Exception:
                     admission_obj = {}
-                subtype = {"event_activity": {"venue_id": venue_id, "category": category, "admission": admission_obj}}
+                subtype = {"event_activity": {
+                    "venue_id": venue_id,
+                    "category": category,
+                    "admission": admission_obj
+                }}
 
             submitted = st.form_submit_button("Create item")
             if submitted:
                 body = {
-                    "type": itype, "name": iname, "link": link or None,
+                    "type": itype,
+                    "name": iname,
+                    "link": link or None,
                     "cost_amount": (None if cost_amount == 0 else float(cost_amount)),
                     "cost_currency": cost_currency or None,
-                    "start_time": start_time or None, "end_time": end_time or None,
+                    "start_time": start_time or None,
+                    "end_time": end_time or None,
                     "notes": notes or None
                 } | subtype
                 created = run_async(tripServices.create_itinerary_item(tid, body))
@@ -317,52 +364,117 @@ with tab_itin:
                 st.json(created)
                 st.rerun()
 
+
 # ---- Budget ----
 with tab_budget:
-    st.subheader("Budget")
-    trips = run_async(tripServices.get_trips(USER_ID))
-    if trips:
-        trip_map = {t["title"]: t["id"] for t in trips}
-        name = st.selectbox("Trip (budget)", list(trip_map.keys()), index=0)
-        tid = trip_map[name]
-        st.json(run_async(tripServices.get_budget(tid)))
+    st.subheader("💰 Trip Budget")
 
-        st.markdown("### Add budget entry")
+    trips = run_async(tripServices.get_trips(USER_ID))
+
+    if not trips:
+        st.info("Create a trip first.")
+    else:
+        trip_map = {t["title"]: t["id"] for t in trips}
+        selected_trip_name = st.selectbox("Trip (budget)", list(trip_map.keys()), index=0)
+        tid = trip_map[selected_trip_name]
+        selected_trip = next((t for t in trips if t["id"] == tid), {})
+
+        st.markdown(f"**Currency:** `{selected_trip.get('default_currency', 'USD')}`")
+
+        budget_data = run_async(tripServices.get_budget(tid))
+        entries = budget_data if isinstance(budget_data, list) else budget_data.get("entries", [])
+
+        if entries:
+            st.markdown("### 📋 Budget Entries")
+
+            budget_df = [
+                {
+                    "Category": entry.get("category", "misc"),
+                    "Amount": money_fmt(entry.get("amount"), entry.get("currency")),
+                    "Linked Item": entry.get("item_id", "—"),
+                    "Created At": entry.get("created_at", "—"),
+                }
+                for entry in entries
+            ]
+
+            st.dataframe(budget_df, use_container_width=True)
+        else:
+            st.warning("No budget entries found.")
+
+        st.markdown("---")
+        st.markdown("### ➕ Add Budget Entry")
         with st.form("add_budget"):
             item_id = st.text_input("Item ID (optional)", "")
             category = st.text_input("Category", "misc")
             amount = st.number_input("Amount", min_value=0.0, value=10.0, step=1.0)
-            currency = st.text_input("Currency", "USD")
+            currency = st.text_input("Currency", selected_trip.get("default_currency", "USD"))
             ok = st.form_submit_button("Add")
+
             if ok:
-                body = {"item_id": item_id or None, "category": category, "amount": amount, "currency": currency}
-                st.json(run_async(tripServices.create_budget_entry(tid, body)))
+                body = {
+                    "item_id": item_id or None,
+                    "category": category,
+                    "amount": amount,
+                    "currency": currency
+                }
+                created = run_async(tripServices.create_budget_entry(tid, body))
+                st.success("Budget entry added")
+                st.json(created)
                 st.rerun()
-    else:
-        st.info("Create a trip first.")
+
 
 # ---- Docs ----
 with tab_docs:
-    st.subheader("Required documents")
-    trips = run_async(tripServices.get_trips(USER_ID))
-    if trips:
-        trip_map = {t["title"]: t["id"] for t in trips}
-        name = st.selectbox("Trip (docs)", list(trip_map.keys()), index=0)
-        tid = trip_map[name]
-        docs = [asdict(d) for d in get_table(REQUIRED_DOCUMENT).values() if d.trip_id == tid]
-        st.json({"docs": docs})
+    st.subheader("📄 Required Documents")
 
+    trips = run_async(tripServices.get_trips(USER_ID))
+
+    if not trips:
+        st.info("Create a trip first.")
+    else:
+        trip_map = {t["title"]: t["id"] for t in trips}
+        selected_trip_name = st.selectbox("Trip (docs)", list(trip_map.keys()), index=0)
+        tid = trip_map[selected_trip_name]
+
+        docs = [
+            doc for doc in get_table(REQUIRED_DOCUMENT).values()
+            if doc.get("trip_id") == tid
+        ]
+
+        if docs:
+            st.markdown("### 📋 Documents List")
+            doc_rows = [
+                {
+                    "Type": doc.get("doc_type", "—"),
+                    "Status": doc.get("status", "—"),
+                    "Due By": doc.get("due_by", "—"),
+                    "File ID": doc.get("file_id", "—"),
+                }
+                for doc in docs
+            ]
+            st.dataframe(doc_rows, use_container_width=True)
+        else:
+            st.warning("No documents found for this trip.")
+
+        st.markdown("---")
+        st.markdown("### ➕ Add New Document")
         with st.form("add_doc"):
-            doc_type = st.text_input("Doc type", "Passport")
-            status = st.selectbox("Status", ["needed","uploaded","approved"], index=0)
+            doc_type = st.text_input("Document Type", "Passport")
+            status = st.selectbox("Status", ["needed", "uploaded", "approved"], index=0)
             due_by = st.text_input("Due by (YYYY-MM-DD)", "")
             add = st.form_submit_button("Add document")
+
             if add:
-                body = {"doc_type": doc_type, "status": status, "due_by": due_by or None}
-                st.json("Item services not available yet")
+                body = {
+                    "doc_type": doc_type,
+                    "status": status,
+                    "due_by": due_by or None
+                }
+                # Placeholder response until service implementation
+                st.warning("Item services not available yet.")
+                st.json(body)
                 st.rerun()
-    else:
-        st.info("Create a trip first.")
+
 
 # ---- Export ----
 with tab_export:
@@ -447,25 +559,63 @@ with tab_console:
 
 # ---- Raw DB ----
 with tab_db:
-    st.subheader("Raw in-memory state (read-only)")
+    st.subheader("🛢️ Raw In-Memory State (Read-only)")
+
     col1, col2, col3 = st.columns(3)
+
+    # --- Column 1: Trips & Places ---
     with col1:
-        st.markdown("**Trips**")
-        st.code(as_json({k: v for k,v in get_table(TRIP).items()}), language="json")
-        st.markdown("**Places**")
-        st.code(as_json({k: v for k,v in get_table(PLACE).items()}), language="json")
+        st.markdown("### ✈️ Trips")
+        with st.expander("View Trips"):
+            trips_data = get_table(TRIP)
+            if trips_data:
+                st.code(as_json(trips_data), language="json")
+            else:
+                st.info("No trips found.")
+
+        st.markdown("### 📍 Places")
+        with st.expander("View Places"):
+            places_data = get_table(PLACE)
+            if places_data:
+                st.code(as_json(places_data), language="json")
+            else:
+                st.info("No places found.")
+
+    # --- Column 2: Itinerary Items & Subtypes ---
     with col2:
-        st.markdown("**Items**")
-        st.code(as_json({k: v for k,v in get_table(ITINERARY_ITEM).items()}), language="json")
-        st.markdown("**Subtypes**")
-        st.code(as_json({
-            "lodging": get_table(LODGING),
-            "transport_rental": get_table(TRANSPORT_RENTAL),
-            "travel_segment": get_table(TRAVEL_SEGMENT),
-            "event_activity": get_table(EVENT_ACTIVITY)
-        }), language="json")
+        st.markdown("### 📅 Itinerary Items")
+        with st.expander("View Items"):
+            items_data = get_table(ITINERARY_ITEM)
+            if items_data:
+                st.code(as_json(items_data), language="json")
+            else:
+                st.info("No itinerary items found.")
+
+        st.markdown("### 🔀 Subtypes")
+        with st.expander("View Subtype Tables"):
+            subtypes = {
+                "lodging": get_table(LODGING),
+                "transport_rental": get_table(TRANSPORT_RENTAL),
+                "travel_segment": get_table(TRAVEL_SEGMENT),
+                "event_activity": get_table(EVENT_ACTIVITY)
+            }
+            st.code(as_json(subtypes), language="json")
+
+    # --- Column 3: Budget & Documents ---
     with col3:
-        st.markdown("**Budget**")
-        st.code(as_json({k: v for k,v in get_table(BUDGET_ENTRY).items()}), language="json")
-        st.markdown("**Docs**")
-        st.code(as_json({k: v for k,v in get_table(REQUIRED_DOCUMENT).items()}), language="json")
+        st.markdown("### 💵 Budget Entries")
+        with st.expander("View Budget Entries"):
+            budget_data = get_table(BUDGET_ENTRY)
+            if budget_data:
+                st.code(as_json(budget_data), language="json")
+            else:
+                st.info("No budget entries found.")
+
+        st.markdown("### 🧾 Required Documents")
+        with st.expander("View Required Docs"):
+            docs_data = get_table(REQUIRED_DOCUMENT)
+            if docs_data:
+                st.code(as_json(docs_data), language="json")
+            else:
+                st.info("No required documents found.")
+
