@@ -7,6 +7,9 @@ from app.database import client as db_client
 
 
 async def create_itinerary_item(id, item_data):
+    """
+    Insert query on items
+    """
     item = {
         "trip_id": id,
         "type": item_data["type"],
@@ -20,5 +23,9 @@ async def create_itinerary_item(id, item_data):
         "status": item_data.get("status", "planned"),
         "notes": item_data.get("notes", None)
     }
-    response = db_client.table(config.DB_SCHEMA.ITINERARY_ITEM).insert(item).execute()
+
+    response = db_client.table(
+        config.DB_SCHEMA.ITINERARY_ITEM
+    ).insert(item).execute()
+
     return response.data
