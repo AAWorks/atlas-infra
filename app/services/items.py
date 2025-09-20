@@ -22,8 +22,3 @@ async def create_itinerary_item(id, item_data):
     }
     response = db_client.table(config.DB_SCHEMA.ITINERARY_ITEM).insert(item).execute()
     return response.data
-
-
-async def get_itinerary(trip_id: str):
-    itinerary = db_client.table(config.DB_SCHEMA.ITINERARY_ITEM).select("*").eq("trip_id", trip_id).order("start_time").execute()
-    return itinerary.data
