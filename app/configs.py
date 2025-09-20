@@ -33,7 +33,7 @@ class Config:
     """
     TITLE = "Atlas Backend API"
     SEM_VER = "v1"
-    DESCRIPTION = "Developer API for Atlas, a simple OO-inspired travel planner."
+    DESCRIPTION = "Developer API for Atlas, an easy-to-use travel planner."
 
     def __init__(self):
         self.SUPABASE_URL = os.getenv("SUPABASE_URL")

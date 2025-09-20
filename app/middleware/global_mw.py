@@ -30,6 +30,8 @@ class GlobalMiddleware(BaseHTTPMiddleware):
 
         process_time = time.time() - start_time
         response.headers["X-Process-Time"] = f"{process_time:.3f}"
-        logging.info(f"⬅️ Response status: {response.status_code} ({process_time:.3f}s)")
+        logging.info(
+            f"⬅️ Response status: {response.status_code} ({process_time:.3f}s)"
+        )
 
         return response
