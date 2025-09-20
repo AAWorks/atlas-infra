@@ -41,8 +41,10 @@ async def get_trip(id: str, user_id: str = Depends(resolve_user_id)):
     Get a specific trip by ID (w)
     """
     res = await trips.get_trip(user_id, id)
+
     if not res:
         raise HTTPException(status_code=404, detail="Trip not found")
+
     return res
 
 
