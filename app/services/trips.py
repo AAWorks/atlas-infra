@@ -2,6 +2,7 @@
 Trips Service
 """
 
+from typing import Optional
 from fastapi import HTTPException
 
 from app.configs import config
@@ -10,17 +11,17 @@ from app.database import client as db_client
 
 async def get_trips(user_id: str) -> list:
     """
-    Wrapper over select query (trip(s) given user)
-
-    Returns: List of trips
+    Select multiple query (trip(s) given user)
     """
-    trips = db_client.table(config.DB_SCHEMA.TRIP).select("*").eq("owner_user_id", user_id).execute()
+    trips = db_client.table(
+        config.DB_SCHEMA.TRIP
+    ).select("*").eq("owner_user_id", user_id).execute()
     return trips.data
 
 
 async def create_trip(user_id: str, trip_data: dict):
     """
-    Wrapper over insert query on trips
+    Insert query on trips
     """
     try:
         # Prepare the trip data
@@ -35,10 +36,14 @@ async def create_trip(user_id: str, trip_data: dict):
         }
 
         # Insert the trip into the database
-        response = db_client.table(config.DB_SCHEMA.TRIP).insert({**trip, "owner_user_id": user_id}).execute()
+        response = db_client.table(
+            config.DB_SCHEMA.TRIP
+        ).insert({**trip, "owner_user_id": user_id}).execute()
 
         # Check if the response contains data or if it's empty
-        if not response.data or isinstance(response.data, list) and len(response.data) == 0:
+        if not response.data or (
+            isinstance(response.data, list) and len(response.data) == 0
+        ):
             raise Exception(f"Failed to create trip: No data returned.")
 
         # Return the inserted trip data
@@ -46,18 +51,23 @@ async def create_trip(user_id: str, trip_data: dict):
 
     except Exception as e:
         # Handle any errors that occur during the operation
-        raise HTTPException(status_code=500, detail=f"Error creating trip: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error creating trip: {str(e)}"
+        )
     
 
-async def get_trip(trip_id: str) -> dict:
+async def get_trip(trip_id: str) -> Optional[dict]:
     """
-    Wrapper over select query on trips
-
-    Returns: Trip data if found, else None
+    Select one query on trips
     """
-    trip = db_client.table(config.DB_SCHEMA.TRIP).select("*").eq("id", trip_id).execute()
+    trip = db_client.table(
+        config.DB_SCHEMA.TRIP
+    ).select("*").eq("id", trip_id).execute()
     
-    if trip.data is None or (isinstance(trip.data, list) and len(trip.data) == 0):
+    if trip.data is None or (
+        isinstance(trip.data, list) and len(trip.data) == 0
+    ):
         # no trip found with trip id
         return None
     
@@ -69,38 +79,62 @@ async def update_trip(trip_id: str, trip_data: dict):
     Wrapper over update query on trips
     """
     try:
-        updated_trip = {key: value for key, value in trip_data.items() if value is not None}
+        updated_trip = {
+            key: value for key, value in trip_data.items() if value is not None
+        }
 
         if not updated_trip:
             raise HTTPException(status_code=400, detail="No data to update")
 
-        response = db_client.table(config.DB_SCHEMA.TRIP).update(updated_trip).eq("id", trip_id).execute()
+        response = db_client.table(
+            config.DB_SCHEMA.TRIP
+        ).update(updated_trip).eq("id", trip_id).execute()
 
         if not response.data:
-            raise HTTPException(status_code=404, detail="Trip not found or failed to update")
+            raise HTTPException(
+                status_code=404,
+                detail="Trip not found or failed to update"
+            )
 
         return response.data
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating trip: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error updating trip: {str(e)}"
+        )
 
 
 async def get_itinerary(trip_id: str):
-    itinerary = db_client.table(config.DB_SCHEMA.ITINERARY_ITEM).select("*").eq("trip_id", trip_id).order("start_time").execute()
+    """
+    Select multiple on trips, ordered by start
+    """
+    itinerary = db_client.table(
+        config.DB_SCHEMA.ITINERARY_ITEM
+    ).select("*").eq("trip_id", trip_id).order("start_time").execute()
     return itinerary.data
 
 
 async def export_trip_data(trip_id: str):
+    """
+    Export trip data in html format
+    """
     # Fetch trip details
-    trip = db_client.table(config.DB_SCHEMA.TRIP).select("*").eq("id", trip_id).single().execute()
+    trip = db_client.table(
+        config.DB_SCHEMA.TRIP
+    ).select("*").eq("id", trip_id).single().execute()
     if not trip.data:
         raise HTTPException(status_code=404, detail="Trip not found")
 
     # Fetch itinerary items
-    itinerary = db_client.table(config.DB_SCHEMA.ITINERARY_ITEM).select("*").eq("trip_id", trip_id).order("start_time").execute()
+    itinerary = db_client.table(
+        config.DB_SCHEMA.ITINERARY_ITEM
+    ).select("*").eq("trip_id", trip_id).order("start_time").execute()
 
     # Fetch budget entries
-    budget = db_client.table(config.DB_SCHEMA.BUDGET_ENTRY).select("*").eq("trip_id", trip_id).execute()
+    budget = db_client.table(
+        config.DB_SCHEMA.BUDGET_ENTRY
+    ).select("*").eq("trip_id", trip_id).execute()
 
     # Combine all data into a single dictionary
     export_data = {
