@@ -178,18 +178,17 @@ class Attachment:
 # ----------------------------
 st.title("Atlas Demo (Streamlit)")
 
-tab_trips, tab_itin, tab_budget, tab_docs, tab_export, tab_console, tab_db = st.tabs(
-    ["Trips", "Itinerary", "Budget", "Docs", "Export", "REST Console", "Raw DB"]
+tab_trips_view, tab_trips_create, tab_itin, tab_additem, tab_budget, tab_docs, tab_export, tab_console, tab_db = st.tabs(
+    ["View Trips", "Create Trip", "Itinerary", "Add Item", "Budget", "Docs", "Export", "REST Console", "Raw DB"]
 )
 
-# ---- Trips ----
-with tab_trips:
+# ---- View Trips ----
+with tab_trips_view:
     st.subheader("Your Trips")
 
     trips = run_async(tripServices.get_trips(USER_ID))
     if not trips:
-        st.info("No trips yet. Create one below.")
-        selected_trip_id = None
+        st.info("No trips found.")
     else:
         trip_titles = [t["title"] for t in trips]
         selected_trip_name = st.selectbox("Select Trip", trip_titles)
@@ -206,8 +205,11 @@ with tab_trips:
                 st.write(f"**Currency:** {selected_trip['home_currency']}")
                 st.write(f"**Notes:** {selected_trip.get('notes', '-')}")
                 st.caption(f"Created at: {selected_trip['created_at']}")
-    
-    st.markdown("### Create Trip")
+
+# ---- Create Trip ----
+with tab_trips_create:
+    st.subheader("➕ Create a New Trip")
+
     with st.form("create_trip"):
         title = st.text_input("Title", "New Trip")
         start_date = st.date_input("Start date", value=date.today() + timedelta(days=20))
@@ -228,6 +230,7 @@ with tab_trips:
             }))
             st.success("Created trip successfully!")
             st.rerun()
+
 
 
 # ---- Itinerary ----
@@ -273,96 +276,97 @@ with tab_itin:
         else:
             st.warning("No itinerary items found.")
 
-        # --- Add Item Form ---
-        st.markdown("### ➕ Add Item")
-        with st.form("add_item"):
-            itype = st.selectbox("Type", ITEM_TYPES, index=0)
-            iname = st.text_input("Name", "New Item")
-            link = st.text_input("Link", "")
-            cost_amount = st.number_input("Cost amount", min_value=0.0, value=0.0, step=1.0)
-            cost_currency = st.text_input("Cost currency", "USD")
-            start_time = st.text_input("Start time (ISO)", "")
-            end_time = st.text_input("End time (ISO)", "")
-            notes = st.text_area("Notes", "")
-            subtype = {}
+with tab_additem:
+    # --- Add Item Form ---
+    st.markdown("### ➕ Add Item")
+    with st.form("add_item"):
+        itype = st.selectbox("Type", ITEM_TYPES, index=0)
+        iname = st.text_input("Name", "New Item")
+        link = st.text_input("Link", "")
+        cost_amount = st.number_input("Cost amount", min_value=0.0, value=0.0, step=1.0)
+        cost_currency = st.text_input("Cost currency", "USD")
+        start_time = st.text_input("Start time (ISO)", "")
+        end_time = st.text_input("End time (ISO)", "")
+        notes = st.text_area("Notes", "")
+        subtype = {}
 
-            if itype == "travel":
-                st.caption("Travel segment")
-                mode = st.selectbox("Mode", TRAVEL_MODES, index=0)
-                operator = st.text_input("Operator", "")
-                number = st.text_input("Number", "")
-                place_table = get_table(PLACE)
-                origin_id = st.text_input("Origin place_id (UUID)", next(iter(place_table)) if place_table else "")
-                destination_id = st.text_input("Destination place_id (UUID)", next(iter(place_table)) if place_table else "")
-                depart_time = st.text_input("Depart time (ISO)", start_time)
-                arrive_time = st.text_input("Arrive time (ISO)", end_time)
-                subtype = {"travel_segment": {
-                    "mode": mode, "operator": operator, "number": number,
-                    "origin_id": origin_id, "destination_id": destination_id,
-                    "depart_time": depart_time, "arrive_time": arrive_time
-                }}
-            elif itype == "lodging":
-                st.caption("Lodging")
-                place_table = get_table(PLACE)
-                place_id = st.text_input("place_id (UUID)", next(iter(place_table)) if place_table else "")
-                check_in = st.text_input("check_in (YYYY-MM-DD)", "")
-                check_out = st.text_input("check_out (YYYY-MM-DD)", "")
-                provider = st.text_input("Provider", "")
-                booking_ref = st.text_input("Booking ref", "")
-                room_type = st.text_input("Room type", "")
-                guests = st.number_input("Guests", min_value=1, value=2, step=1)
-                subtype = {"lodging": {
-                    "place_id": place_id, "check_in": check_in, "check_out": check_out,
-                    "provider": provider, "booking_ref": booking_ref,
-                    "room_type": room_type, "guests": int(guests)
-                }}
-            elif itype == "transport_rental":
-                st.caption("Transport rental")
-                vehicle = st.selectbox("Vehicle", VEHICLE_TYPES, index=0)
-                vendor = st.text_input("Vendor", "")
-                confirmation_code = st.text_input("Confirmation", "")
-                place_table = get_table(PLACE)
-                pickup_place_id = st.text_input("Pickup place_id", next(iter(place_table)) if place_table else "")
-                dropoff_place_id = st.text_input("Dropoff place_id", next(iter(place_table)) if place_table else "")
-                pickup_time = st.text_input("Pickup time (ISO)", start_time)
-                dropoff_time = st.text_input("Dropoff time (ISO)", end_time)
-                subtype = {"transport_rental": {
-                    "vehicle": vehicle, "vendor": vendor, "confirmation_code": confirmation_code,
-                    "pickup_place_id": pickup_place_id, "dropoff_place_id": dropoff_place_id,
-                    "pickup_time": pickup_time, "dropoff_time": dropoff_time
-                }}
-            elif itype == "event":
-                st.caption("Event/activity")
-                place_table = get_table(PLACE)
-                venue_id = st.text_input("venue_id (UUID)", next(iter(place_table)) if place_table else "")
-                category = st.text_input("Category", "excursion")
-                admission = st.text_area("Admission (JSON)", "{}")
-                try:
-                    admission_obj = json.loads(admission or "{}")
-                except Exception:
-                    admission_obj = {}
-                subtype = {"event_activity": {
-                    "venue_id": venue_id,
-                    "category": category,
-                    "admission": admission_obj
-                }}
+        if itype == "travel":
+            st.caption("Travel segment")
+            mode = st.selectbox("Mode", TRAVEL_MODES, index=0)
+            operator = st.text_input("Operator", "")
+            number = st.text_input("Number", "")
+            place_table = get_table(PLACE)
+            origin_id = st.text_input("Origin place_id (UUID)", next(iter(place_table)) if place_table else "")
+            destination_id = st.text_input("Destination place_id (UUID)", next(iter(place_table)) if place_table else "")
+            depart_time = st.text_input("Depart time (ISO)", start_time)
+            arrive_time = st.text_input("Arrive time (ISO)", end_time)
+            subtype = {"travel_segment": {
+                "mode": mode, "operator": operator, "number": number,
+                "origin_id": origin_id, "destination_id": destination_id,
+                "depart_time": depart_time, "arrive_time": arrive_time
+            }}
+        elif itype == "lodging":
+            st.caption("Lodging")
+            place_table = get_table(PLACE)
+            place_id = st.text_input("place_id (UUID)", next(iter(place_table)) if place_table else "")
+            check_in = st.text_input("check_in (YYYY-MM-DD)", "")
+            check_out = st.text_input("check_out (YYYY-MM-DD)", "")
+            provider = st.text_input("Provider", "")
+            booking_ref = st.text_input("Booking ref", "")
+            room_type = st.text_input("Room type", "")
+            guests = st.number_input("Guests", min_value=1, value=2, step=1)
+            subtype = {"lodging": {
+                "place_id": place_id, "check_in": check_in, "check_out": check_out,
+                "provider": provider, "booking_ref": booking_ref,
+                "room_type": room_type, "guests": int(guests)
+            }}
+        elif itype == "transport_rental":
+            st.caption("Transport rental")
+            vehicle = st.selectbox("Vehicle", VEHICLE_TYPES, index=0)
+            vendor = st.text_input("Vendor", "")
+            confirmation_code = st.text_input("Confirmation", "")
+            place_table = get_table(PLACE)
+            pickup_place_id = st.text_input("Pickup place_id", next(iter(place_table)) if place_table else "")
+            dropoff_place_id = st.text_input("Dropoff place_id", next(iter(place_table)) if place_table else "")
+            pickup_time = st.text_input("Pickup time (ISO)", start_time)
+            dropoff_time = st.text_input("Dropoff time (ISO)", end_time)
+            subtype = {"transport_rental": {
+                "vehicle": vehicle, "vendor": vendor, "confirmation_code": confirmation_code,
+                "pickup_place_id": pickup_place_id, "dropoff_place_id": dropoff_place_id,
+                "pickup_time": pickup_time, "dropoff_time": dropoff_time
+            }}
+        elif itype == "event":
+            st.caption("Event/activity")
+            place_table = get_table(PLACE)
+            venue_id = st.text_input("venue_id (UUID)", next(iter(place_table)) if place_table else "")
+            category = st.text_input("Category", "excursion")
+            admission = st.text_area("Admission (JSON)", "{}")
+            try:
+                admission_obj = json.loads(admission or "{}")
+            except Exception:
+                admission_obj = {}
+            subtype = {"event_activity": {
+                "venue_id": venue_id,
+                "category": category,
+                "admission": admission_obj
+            }}
 
-            submitted = st.form_submit_button("Create item")
-            if submitted:
-                body = {
-                    "type": itype,
-                    "name": iname,
-                    "link": link or None,
-                    "cost_amount": (None if cost_amount == 0 else float(cost_amount)),
-                    "cost_currency": cost_currency or None,
-                    "start_time": start_time or None,
-                    "end_time": end_time or None,
-                    "notes": notes or None
-                } | subtype
-                created = run_async(tripServices.create_itinerary_item(tid, body))
-                st.success("Item created")
-                st.json(created)
-                st.rerun()
+        submitted = st.form_submit_button("Create item")
+        if submitted:
+            body = {
+                "type": itype,
+                "name": iname,
+                "link": link or None,
+                "cost_amount": (None if cost_amount == 0 else float(cost_amount)),
+                "cost_currency": cost_currency or None,
+                "start_time": start_time or None,
+                "end_time": end_time or None,
+                "notes": notes or None
+            } | subtype
+            created = run_async(tripServices.create_itinerary_item(tid, body))
+            st.success("Item created")
+            st.json(created)
+            st.rerun()
 
 
 # ---- Budget ----
