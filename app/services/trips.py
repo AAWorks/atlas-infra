@@ -7,6 +7,7 @@ from fastapi import HTTPException
 
 from app.configs import config
 from app.database import client as db_client
+from app.services._trips_formatting import trip_formatter
 
 
 async def get_trips(user_id: str) -> list:
@@ -115,7 +116,7 @@ async def get_itinerary(trip_id: str):
     return itinerary.data
 
 
-async def export_trip_data(trip_id: str):
+async def export_trip_data(trip_id: str, export_type: str = 'html'): # should be a base model
     """
     Export trip data in html format
     """
@@ -131,18 +132,11 @@ async def export_trip_data(trip_id: str):
         config.DB_SCHEMA.ITINERARY_ITEM
     ).select("*").eq("trip_id", trip_id).order("start_time").execute()
 
-    # Fetch budget entries
-    budget = db_client.table(
-        config.DB_SCHEMA.BUDGET_ENTRY
-    ).select("*").eq("trip_id", trip_id).execute()
-
     # Combine all data into a single dictionary
-    export_data = {
-        "content" : {
-            "trip": trip.data,
-            "itinerary": itinerary.data,
-            "budget": budget.data
-        }
-    }
+    export_file = trip_formatter.format(
+        trip.data,
+        itinerary.data,
+        type=export_type
+    )
 
-    return export_data
+    return export_file
